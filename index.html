@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Alatau Smart Accessibility MVP</title>
+    <meta
+      name="description"
+      content="A working demo for accessible navigation, place discovery, hazard reporting, and emergency support in Alatau Smart City."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <style>
+    :root {
+  --bg: #f6efe3;
+  --bg-strong: #fff8ee;
+  --surface: rgba(255, 250, 242, 0.88);
+  --surface-strong: #fffdf8;
+  --line: rgba(68, 47, 30, 0.12);
+  --text: #1f1b16;
+  --muted: #5f584f;
+  --accent: #0d8c7f;
+  --accent-dark: #085d55;
+  --accent-soft: rgba(13, 140, 127, 0.12);
+  --danger: #d1472f;
+  --danger-soft: rgba(209, 71, 47, 0.14);
+  --warning: #d98324;
+  --safe: #24835b;
+  --shadow: 0 18px 42px rgba(94, 63, 25, 0.1);
+  --radius-lg: 28px;
+  --radius-md: 20px;
+  --radius-sm: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255, 186, 92, 0.26), transparent 34%),
+    radial-gradient(circle at top right, rgba(13, 140, 127, 0.18), transparent 28%),
+    linear-gradient(180deg, #f5ecdf 0%, #f0f5f2 52%, #f4efe8 100%);
+  min-height: 100vh;
+}
+
+body.emergency-mode {
+  --bg: #fffde8;
+  --bg-strong: #fffacd;
+  --surface: #fffef6;
+  --surface-strong: #fffefc;
+  --line: rgba(0, 0, 0, 0.26);
+  --text: #111;
+  --muted: #2a2a2a;
+  --accent: #000;
+  --accent-dark: #000;
+  --accent-soft: rgba(0, 0, 0, 0.08);
+  --danger: #000;
+  --danger-soft: rgba(0, 0, 0, 0.12);
+  background: linear-gradient(180deg, #fffde8 0%, #fff7ba 100%);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.skip-link {
+  position: absolute;
+  top: -3rem;
+  left: 1rem;
+  z-index: 20;
+  padding: 0.8rem 1rem;
+  border-radius: 0.9rem;
+  background: var(--text);
+  color: #fff;
+}
+
+.skip-link:focus {
+  top: 1rem;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+}
+
+.background-blur {
+  position: fixed;
+  z-index: -1;
+  width: 28rem;
+  height: 28rem;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.45;
+}
+
+.background-blur-left {
+  top: 4rem;
+  left: -8rem;
+  background: rgba(255, 189, 81, 0.7);
+}
+
+.background-blur-right {
+  top: 12rem;
+  right: -10rem;
+  background: rgba(13, 140, 127, 0.38);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 2rem;
+  backdrop-filter: blur(18px);
+  background: rgba(255, 249, 240, 0.8);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.brand-mark {
+  display: inline-flex;
+  width: 4.5rem;
+  height: 3.2rem;
+  flex: 0 0 auto;
+}
+
+.brand-mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 8px 16px rgba(125, 88, 196, 0.22));
+}
+
+.brand strong,
+h1,
+h2,
+h3,
+h4 {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.brand small {
+  display: block;
+  color: var(--muted);
+}
+
+.main-nav {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.main-nav a {
+  padding: 0.6rem 0.9rem;
+  border-radius: 999px;
+  color: var(--muted);
+  text-align: center;
+  width: 100%;
+}
+
+.main-nav a:hover,
+.main-nav a:focus-visible {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.emergency-toggle,
+.primary-button,
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0.85rem 1.2rem;
+  border-radius: 999px;
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.primary-button:hover,
+.ghost-button:hover,
+.emergency-toggle:hover,
+.primary-button:focus-visible,
+.ghost-button:focus-visible,
+.emergency-toggle:focus-visible {
+  transform: translateY(-1px);
+}
+
+.primary-button {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(13, 140, 127, 0.18);
+}
+
+.ghost-button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--text);
+}
+
+.emergency-toggle {
+  background: var(--danger);
+  color: #fff;
+}
+
+main {
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding-bottom: 5rem;
+}
+
+.page-section {
+  padding: 4.5rem 0 0;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.hero-copy,
+.card,
+.hero-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.hero-copy {
+  padding: 2.3rem;
+  border-radius: var(--radius-lg);
+}
+
+.hero-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+}
+
+.hero-text,
+.section-heading p,
+.metric-card p,
+.card p,
+.summary-list,
+.helper-text,
+.status-message {
+  color: var(--muted);
+}
+
+.eyebrow,
+.mini-label,
+.metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-dark);
+}
+
+.eyebrow::before {
+  content: "";
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffae42, #0d8c7f);
+}
+
+h1 {
+  margin: 1rem 0;
+  font-size: clamp(2.7rem, 5vw, 4.8rem);
+  line-height: 0.97;
+  max-width: 12ch;
+}
+
+h2 {
+  margin: 0.2rem 0 0.8rem;
+  font-size: clamp(2rem, 4vw, 3rem);
+}
+
+h3 {
+  margin-top: 0;
+  font-size: 1.45rem;
+}
+
+.hero-actions,
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.search-panel {
+  margin-top: 2rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid var(--line);
+}
+
+.search-label {
+  display: block;
+  margin-bottom: 0.7rem;
+  font-weight: 600;
+}
+
+.search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.8rem;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 0.95rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(13, 140, 127, 0.2);
+  border-color: var(--accent);
+}
+
+.metric-card,
+.card {
+  border-radius: var(--radius-lg);
+}
+
+.metric-card {
+  padding: 1.2rem;
+  background: var(--surface-strong);
+}
+
+.metric-card strong {
+  display: block;
+  margin: 0.4rem 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.alert-card {
+  background: linear-gradient(180deg, rgba(255, 228, 186, 0.85), rgba(255, 248, 231, 0.92));
+}
+
+.section-heading {
+  max-width: 56rem;
+  margin-bottom: 1.4rem;
+}
+
+.profile-layout,
+.map-layout,
+.place-layout,
+.support-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.2rem;
+}
+
+.card {
+  padding: 1.5rem;
+}
+
+.tag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  margin: 1.2rem 0 1.4rem;
+}
+
+.tag-button {
+  min-height: 3rem;
+  padding: 0.8rem 1.05rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--text);
+  text-align: left;
+}
+
+.tag-button.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.summary-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.summary-list li + li {
+  margin-top: 0.55rem;
+}
+
+.info-stack {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.map-frame {
+  position: relative;
+  min-height: 25rem;
+  padding: 0;
+  border-radius: 1.6rem;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.58) 1px, transparent 1px) 0 0 / 4rem 4rem,
+    linear-gradient(rgba(255, 255, 255, 0.56) 1px, transparent 1px) 0 0 / 4rem 4rem,
+    linear-gradient(135deg, rgba(13, 140, 127, 0.2), rgba(255, 211, 128, 0.2));
+  border: 1px solid var(--line);
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #dff4f1 0%, #eef7f0 100%);
+}
+
+.leaflet-control-zoom a {
+  color: var(--text) !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.leaflet-popup-content {
+  margin: 0.9rem 1rem;
+}
+
+.live-map-toolbar {
+  margin-bottom: 0.8rem;
+}
+
+.map-note {
+  margin-bottom: 0.8rem;
+}
+
+.db-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.db-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.checkbox-grid label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.95rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.meta-stack {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.map-empty {
+  min-height: 25rem;
+}
+
+.map-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.95fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.map-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.map-filter-button {
+  min-height: 2.8rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+}
+
+.map-filter-button.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.map-route {
+  position: absolute;
+  height: 0.8rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.8rem;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.route-primary {
+  top: 7rem;
+  left: 2rem;
+  width: 72%;
+  background: rgba(13, 140, 127, 0.72);
+  transform: rotate(-10deg);
+}
+
+.route-secondary {
+  top: 14rem;
+  left: 4rem;
+  width: 64%;
+  background: rgba(217, 131, 36, 0.56);
+  transform: rotate(5deg);
+}
+
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0.75rem 0.9rem;
+  border-radius: 1rem;
+  box-shadow: var(--shadow);
+  max-width: 10rem;
+  text-align: left;
+  border: 1px solid transparent;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.map-pin:hover,
+.map-pin:focus-visible {
+  transform: translate(-50%, calc(-50% - 2px));
+}
+
+.map-pin.is-selected {
+  border-color: var(--accent-dark);
+  box-shadow: 0 0 0 4px rgba(13, 140, 127, 0.14), var(--shadow);
+}
+
+.map-pin small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.place-pin {
+  background: #fff;
+}
+
+.hazard-pin {
+  background: #fff0eb;
+  border: 1px solid rgba(209, 71, 47, 0.22);
+}
+
+.safe-pin {
+  background: #ecfff2;
+  border: 1px solid rgba(36, 131, 91, 0.22);
+}
+
+.pin-1 {
+  top: 5rem;
+  left: 62%;
+}
+
+.pin-2 {
+  top: 17rem;
+  left: 18%;
+}
+
+.pin-3 {
+  top: 3rem;
+  left: 20%;
+}
+
+.pin-4 {
+  top: 10rem;
+  left: 44%;
+}
+
+.pin-5 {
+  top: 19rem;
+  left: 58%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+  color: var(--muted);
+}
+
+.map-inspector {
+  min-height: 25rem;
+  padding: 1.2rem;
+  border-radius: 1.4rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+}
+
+.map-inspector h3 {
+  margin-bottom: 0.55rem;
+}
+
+.audience-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.9rem 0;
+}
+
+.audience-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(13, 140, 127, 0.1);
+  color: var(--accent-dark);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.detail-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1rem 0;
+}
+
+.detail-list div {
+  padding: 0.85rem 0.95rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid var(--line);
+}
+
+.detail-list strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.map-empty {
+  display: grid;
+  place-items: center;
+  min-height: 25rem;
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+.route-summary {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1.15rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.route-summary strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.assistant-thread {
+  display: grid;
+  gap: 0.8rem;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+.assistant-message {
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+}
+
+.assistant-message.user {
+  background: rgba(13, 140, 127, 0.1);
+}
+
+.assistant-message.assistant {
+  background: rgba(255, 174, 66, 0.14);
+}
+
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(25, 19, 11, 0.44);
+  backdrop-filter: blur(18px);
+}
+
+.auth-overlay.is-open {
+  display: flex;
+}
+
+.auth-card {
+  width: min(31rem, 100%);
+  padding: 1.2rem;
+  border-radius: 1.6rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow);
+}
+
+.user-profile-panel {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.field-note {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+}
+
+.danger-note {
+  color: var(--danger);
+}
+
+.success-note {
+  color: var(--safe);
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(13, 140, 127, 0.24);
+  outline-offset: 3px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  transform: none;
+  box-shadow: none;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+
+.place-dot {
+  background: var(--accent);
+}
+
+.hazard-dot {
+  background: var(--danger);
+}
+
+.safe-dot {
+  background: var(--safe);
+}
+
+.results-list,
+.report-feed,
+.trust-stack {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.status-message {
+  min-height: 1.5rem;
+  margin-bottom: 0;
+}
+
+.result-card,
+.hazard-item,
+.last-meters-card {
+  border-radius: 1.2rem;
+  border: 1px solid var(--line);
+  background: var(--surface-strong);
+  padding: 1rem;
+}
+
+.result-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(13, 140, 127, 0.08);
+}
+
+.result-topline,
+.feed-header,
+.attribute-list,
+.confidence-row,
+.place-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.result-topline {
+  justify-content: space-between;
+}
+
+.score-pill,
+.trust-label,
+.status-pill,
+.mini-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.score-pill {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.trust-label {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.trust-venue {
+  background: rgba(13, 140, 127, 0.12);
+}
+
+.trust-community {
+  background: rgba(255, 174, 66, 0.18);
+}
+
+.trust-recent {
+  background: rgba(36, 131, 91, 0.12);
+}
+
+.trust-outdated {
+  background: rgba(209, 71, 47, 0.12);
+}
+
+.attribute-list {
+  margin-top: 1rem;
+}
+
+.mini-pill {
+  background: rgba(255, 174, 66, 0.18);
+}
+
+.place-card header {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.place-card-photo {
+  min-height: 13rem;
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(135deg, rgba(13, 140, 127, 0.24), rgba(255, 174, 66, 0.24)),
+    url("https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80")
+      center/cover;
+}
+
+.route-note,
+.safe-zone-box,
+.emergency-status {
+  padding: 1rem;
+  border-radius: 1.25rem;
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+}
+
+.report-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.hazard-item {
+  background: #fff8f6;
+}
+
+.hazard-item strong {
+  display: block;
+}
+
+.support-card {
+  min-height: 100%;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(1200px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.4rem 0 3rem;
+  color: var(--muted);
+}
+
+@media (max-width: 1024px) {
+  .hero,
+  .profile-layout,
+  .map-layout,
+  .map-shell,
+  .place-layout,
+  .support-layout,
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .main-nav {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .topbar-actions {
+    justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+  body {
+    font-size: 0.97rem;
+  }
+
+  .topbar,
+  main,
+  .footer {
+    width: min(100% - 1rem, 100%);
+  }
+
+  .topbar {
+    padding: 1rem;
+  }
+
+  .hero-copy,
+  .hero-panel,
+  .card {
+    padding: 1.15rem;
+  }
+
+  .search-row {
+    grid-template-columns: 1fr;
+  }
+
+  .db-form-grid,
+  .checkbox-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar,
+  .footer {
+    flex-direction: column;
+  }
+
+  .map-frame {
+    min-height: 22rem;
+  }
+
+  .map-pin {
+    max-width: 8rem;
+    font-size: 0.82rem;
+  }
+
+  .map-route {
+    font-size: 0.68rem;
+    padding: 0 0.5rem;
+  }
+
+  .main-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+
+
+  </style>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <div class="background-blur background-blur-left"></div>
+    <div class="background-blur background-blur-right"></div>
+
+    <header class="topbar">
+      <a class="brand" href="#home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 180 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Brand logo">
+            <defs>
+              <linearGradient id="brandLogoFill" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#b997ff" />
+                <stop offset="100%" stop-color="#8c68dd" />
+              </linearGradient>
+            </defs>
+            <polygon points="18,46 80,46 54,86 0,86" fill="url(#brandLogoFill)" stroke="#6f53b7" stroke-width="3" />
+            <polygon points="78,18 172,18 132,88 98,88 72,130 14,130" fill="url(#brandLogoFill)" stroke="#6f53b7" stroke-width="3" />
+          </svg>
+        </span>
+        <span>
+          <strong>Alatau Smart</strong>
+          <small>Accessible City Demo</small>
+        </span>
+      </a>
+      <nav class="main-nav" aria-label="Primary">
+        <a href="#home">Home</a>
+        <a href="#profile">Profile</a>
+        <a href="#map">Map</a>
+        <a href="#place">Place Card</a>
+        <a href="#support">Support</a>
+        <a href="#assistant">Assistant</a>
+        <a href="#admin">Admin</a>
+      </nav>
+      <div class="topbar-actions">
+        <span class="mini-pill" id="current-user-pill">Guest</span>
+        <button class="ghost-button" id="logout-button" type="button">Logout</button>
+        <button
+          class="emergency-toggle"
+          id="emergency-toggle"
+          type="button"
+          aria-pressed="false"
+        >
+          Earthquake Safe Mode
+        </button>
+      </div>
+    </header>
+
+    <div class="auth-overlay is-open" id="auth-overlay">
+      <div class="auth-card">
+        <p class="eyebrow">Welcome</p>
+        <h2>Register or sign in</h2>
+        <p class="helper-text">
+          Enter your details once, save your support profile, and the assistant will use it in recommendations.
+        </p>
+        <form class="db-form" id="auth-form">
+          <div class="db-form-grid">
+            <div>
+              <label for="auth-name">Name</label>
+              <input id="auth-name" name="auth-name" type="text" placeholder="Your name" />
+            </div>
+            <div>
+              <label for="auth-email">Email</label>
+              <input id="auth-email" name="auth-email" type="email" placeholder="name@example.com" />
+            </div>
+          </div>
+
+          <div>
+            <label for="auth-password">Password</label>
+            <input id="auth-password" name="auth-password" type="password" placeholder="Create a password" />
+          </div>
+
+          <div>
+            <label for="auth-about">Tell us about yourself</label>
+            <textarea
+              id="auth-about"
+              name="auth-about"
+              rows="3"
+              placeholder="Example: I use a wheelchair, prefer quieter routes, and need elevators."
+            ></textarea>
+          </div>
+
+          <div>
+            <span class="mini-label">Needs to save</span>
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="auth-tag" value="mobility-support" checked /> Mobility</label>
+              <label><input type="checkbox" name="auth-tag" value="blind-support" /> Blind / low vision</label>
+              <label><input type="checkbox" name="auth-tag" value="deaf-support" /> Deaf / hearing</label>
+              <label><input type="checkbox" name="auth-tag" value="sensory-friendly" /> Sensory-friendly</label>
+            </div>
+          </div>
+
+          <div class="button-row">
+            <button class="ghost-button" id="confirm-auth-button" type="button">Confirm and enter</button>
+            <button class="primary-button" type="submit">Enter app</button>
+            <button class="ghost-button" id="demo-user-button" type="button">Use saved account</button>
+          </div>
+          <p class="field-note" id="auth-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+
+    <main id="main-content">
+      <section class="hero page-section" id="home">
+        <div class="hero-copy">
+          <p class="eyebrow">Alatau Smart City MVP</p>
+          <h1>Accessibility that adapts to real people, real places, and real city risk.</h1>
+          <p class="hero-text">
+            This website is a working demo of the Alatau accessibility ecosystem. Users can set
+            their needs, search in natural language, inspect structured place details, report
+            hazards, and switch into emergency guidance for seismic risk.
+          </p>
+
+          <div class="hero-actions">
+            <button class="primary-button" id="start-demo" type="button">Start 3-minute demo</button>
+            <a class="ghost-button" href="#profile">Create accessibility profile</a>
+          </div>
+
+          <form class="search-panel" id="search-form">
+            <label class="search-label" for="search-input">Natural-language search</label>
+            <div class="search-row">
+              <input
+                id="search-input"
+                name="search"
+                type="text"
+                value="quiet cafe with step-free entrance"
+                aria-describedby="search-helper"
+              />
+              <button class="primary-button" type="submit">Search</button>
+            </div>
+            <p class="helper-text" id="search-helper">
+              Try: "quiet cafe with step-free entrance", "blind-friendly library", or "deaf support center"
+            </p>
+          </form>
+        </div>
+
+        <aside class="hero-panel">
+          <div class="metric-card">
+            <span class="metric-label">Supported user types</span>
+            <strong>12 groups</strong>
+            <p>From wheelchair users and low-vision users to venue owners, volunteers, and admins.</p>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Demo focus</span>
+            <strong>One realistic journey</strong>
+            <p>Profile setup, search, place card, last-20-meters guidance, hazard alert, support.</p>
+          </div>
+          <div class="metric-card alert-card" id="smog-alert-card">
+            <span class="metric-label">Alatau-specific layer</span>
+            <strong>Smog-aware routing active</strong>
+            <p>
+              Air quality is elevated today. The default route favors indoor transit passages and
+              lower traffic streets for sensitive users.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="page-section" id="profile">
+        <div class="section-heading">
+          <p class="eyebrow">Profile Setup</p>
+          <h2>Personalized accessibility profile</h2>
+          <p>
+            Accessibility means different things to different people. Select the barriers that
+            matter and the system will adapt search ranking, place recommendations, and routing.
+          </p>
+        </div>
+
+        <div class="profile-layout">
+          <div class="card">
+            <h3>Choose your needs</h3>
+            <div class="tag-grid" id="profile-tags" aria-live="polite"></div>
+            <button class="primary-button" id="save-profile" type="button">Save preferences</button>
+            <p class="status-message" id="save-status" role="status" aria-live="polite"></p>
+          </div>
+
+          <div class="card summary-card">
+            <h3>Current profile summary</h3>
+            <ul class="summary-list" id="profile-summary"></ul>
+            <div class="info-stack">
+              <div>
+                <span class="mini-label">Search behavior</span>
+                <p id="search-behavior-copy"></p>
+              </div>
+              <div>
+                <span class="mini-label">Route behavior</span>
+                <p id="route-behavior-copy"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="map">
+        <div class="section-heading">
+          <p class="eyebrow">Map And Navigation</p>
+          <h2>Accessible places, hazards, and final approach guidance</h2>
+          <p>
+            This MVP uses a bounded demo neighborhood with structured place data, temporary hazard
+            alerts, and a last-20-meters view focused on the final entrance experience.
+          </p>
+        </div>
+
+        <div class="map-layout">
+          <div class="card">
+            <div class="toolbar">
+              <div>
+                <span class="mini-label">Parsed filters</span>
+                <p id="active-filters">No active search yet.</p>
+              </div>
+              <button class="ghost-button" id="replay-demo" type="button">Replay demo flow</button>
+            </div>
+
+            <div class="map-filter-row" id="map-filter-row" aria-label="Map audience filters"></div>
+            <p class="status-message" id="map-summary-status"></p>
+            <p class="status-message" id="interaction-status" role="status" aria-live="polite"></p>
+            <div class="button-row live-map-toolbar">
+              <button class="ghost-button" id="locate-me" type="button">Find my location</button>
+              <button class="ghost-button" id="nearest-place" type="button">Nearest accessible place</button>
+              <button class="ghost-button" id="build-route" type="button">Build route</button>
+              <button class="ghost-button" id="clear-route" type="button">Clear route</button>
+              <button class="ghost-button" id="reload-db" type="button">Reload database</button>
+              <button class="ghost-button" id="export-db" type="button">Export data</button>
+            </div>
+            <p class="field-note map-note" id="db-status" role="status" aria-live="polite"></p>
+
+            <div class="map-shell">
+              <div class="map-frame" id="map-frame" aria-label="Demo city map"></div>
+              <aside class="map-inspector" id="map-inspector" aria-live="polite"></aside>
+            </div>
+            <div class="route-summary" id="route-summary" aria-live="polite">
+              <strong>Route is not built yet</strong>
+              <span>Select a place and tap Build route. If location is allowed, the app will show time and distance.</span>
+            </div>
+
+            <div class="legend">
+              <span><i class="legend-dot place-dot"></i> Accessible places</span>
+              <span><i class="legend-dot hazard-dot"></i> Hazard reports</span>
+              <span><i class="legend-dot safe-dot"></i> Safe zones</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Ranked results</h3>
+            <div class="results-list" id="results-list"></div>
+            <p class="status-message" id="results-status" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="place">
+        <div class="section-heading">
+          <p class="eyebrow">Place Card</p>
+          <h2>Structured accessibility details, not a single score</h2>
+          <p>
+            Every place card shows granular access information, trust labels, destination guidance,
+            and venue updates so users can make real decisions.
+          </p>
+        </div>
+
+        <div class="place-layout">
+          <article class="card place-card" id="place-card"></article>
+
+          <aside class="card">
+            <h3>Report a temporary barrier</h3>
+            <form id="hazard-form" class="report-form">
+              <label for="hazard-title">Issue</label>
+              <input id="hazard-title" name="title" type="text" placeholder="Example: scooter blocking ramp" />
+              <label for="hazard-detail">Details</label>
+              <textarea
+                id="hazard-detail"
+                name="detail"
+                rows="4"
+                placeholder="Describe the hazard and where it appears."
+              ></textarea>
+              <button class="primary-button" type="submit">Publish hazard report</button>
+              <p class="field-note" id="hazard-form-status" role="status" aria-live="polite"></p>
+            </form>
+
+            <div class="report-feed">
+              <div class="feed-header">
+                <h4>Live hazard feed</h4>
+                <span id="hazard-count"></span>
+              </div>
+              <div id="hazard-feed"></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="page-section" id="support">
+        <div class="section-heading">
+          <p class="eyebrow">Support And Emergency</p>
+          <h2>Volunteer help, escalation, and earthquake-safe mode</h2>
+          <p>
+            The support layer is intentionally simple for the MVP: quick volunteer connection,
+            emergency escalation, safe-zone guidance, and high-contrast emergency presentation.
+          </p>
+        </div>
+
+        <div class="support-layout">
+          <div class="card support-card">
+            <h3>Need help now?</h3>
+            <p id="support-copy">
+              Request a volunteer escort, switch to text-first help, or trigger emergency mode for a
+              simplified interface and safe-zone guidance.
+            </p>
+            <div class="hero-actions">
+              <a class="primary-button" href="https://wa.me/?text=I%20need%20accessibility%20support%20near%20Cafe%20Orbit" target="_blank" rel="noreferrer">
+                Contact volunteer
+              </a>
+              <button class="ghost-button" id="escalate-button" type="button">Emergency escalation</button>
+            </div>
+          </div>
+
+          <div class="card support-card">
+            <h3>Emergency state</h3>
+            <div class="emergency-status" id="emergency-status">
+              <span class="status-pill">Normal</span>
+              <p>Safe zones and alerts are visible, but the interface stays in standard browsing mode.</p>
+            </div>
+            <div class="safe-zone-box">
+              <span class="mini-label">Nearest safe zone</span>
+              <strong id="safe-zone-name">Transit Hub Safe Zone</strong>
+              <p id="safe-zone-copy">
+                Step-free entry from the east side, tactile floor line from plaza crossing, volunteer
+                desk near Gate B.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="admin">
+        <div class="section-heading">
+          <p class="eyebrow">Admin Snapshot</p>
+          <h2>Moderation and trust management</h2>
+          <p>
+            For the hackathon, this page is a demo of venue claim review, hazard moderation, and
+            trust-label governance instead of a full multi-role dashboard.
+          </p>
+        </div>
+
+        <div class="admin-grid">
+          <div class="card admin-card">
+            <h3>Pending venue claim</h3>
+            <p><strong>Orbit Cafe</strong> requests ownership of its place card.</p>
+            <ul class="summary-list">
+              <li>Uploaded entrance photo and elevator note</li>
+              <li>Updated accessible restroom availability</li>
+              <li>Marked service desk counter height</li>
+            </ul>
+            <div class="button-row">
+              <button class="primary-button" id="approve-claim-button" type="button">Approve claim</button>
+              <button class="ghost-button" id="request-proof-button" type="button">Request proof</button>
+            </div>
+            <p class="field-note" id="admin-status" role="status" aria-live="polite"></p>
+          </div>
+
+          <div class="card admin-card">
+            <h3>Trust label review</h3>
+            <div class="trust-stack">
+              <span class="trust-label trust-venue">Verified by venue</span>
+              <span class="trust-label trust-community">Verified by community</span>
+              <span class="trust-label trust-recent">Recently updated</span>
+              <span class="trust-label trust-outdated">Outdated</span>
+            </div>
+            <p>Trust labels are surfaced directly on place cards so users know which facts are reliable.</p>
+          </div>
+
+          <div class="card admin-card">
+            <h3>Moderation queue</h3>
+            <ul class="summary-list">
+              <li>2 hazard reports need confirmation</li>
+              <li>1 duplicate venue edit flagged by admin</li>
+              <li>0 emergency requests waiting</li>
+            </ul>
+          </div>
+
+          <div class="card admin-card">
+            <h3>Add place to database</h3>
+            <form class="db-form" id="place-form">
+              <div class="db-form-grid">
+                <div>
+                  <label for="place-name">Place name</label>
+                  <input id="place-name" name="place-name" type="text" placeholder="Example: Inclusive pharmacy" />
+                </div>
+                <div>
+                  <label for="place-category">Category</label>
+                  <input id="place-category" name="place-category" type="text" placeholder="Clinic, service center, cafe" />
+                </div>
+              </div>
+
+              <div>
+                <label for="place-address">Address / note</label>
+                <input id="place-address" name="place-address" type="text" placeholder="Alatau district, block or landmark" />
+              </div>
+
+              <div class="db-form-grid">
+                <div>
+                  <label for="place-lat">Latitude</label>
+                  <input id="place-lat" name="place-lat" type="number" step="0.000001" placeholder="43.23" />
+                </div>
+                <div>
+                  <label for="place-lng">Longitude</label>
+                  <input id="place-lng" name="place-lng" type="number" step="0.000001" placeholder="76.92" />
+                </div>
+              </div>
+
+              <div>
+                <span class="mini-label">Support profiles</span>
+                <div class="checkbox-grid">
+                  <label><input type="checkbox" name="place-tag" value="mobility-support" checked /> Mobility</label>
+                  <label><input type="checkbox" name="place-tag" value="blind-support" /> Blind / low vision</label>
+                  <label><input type="checkbox" name="place-tag" value="deaf-support" /> Deaf / hearing</label>
+                  <label><input type="checkbox" name="place-tag" value="sensory-friendly" /> Sensory-friendly</label>
+                </div>
+              </div>
+
+              <div>
+                <label for="place-features">Features</label>
+                <textarea
+                  id="place-features"
+                  name="place-features"
+                  rows="3"
+                  placeholder="Example: ramp, accessible restroom, tactile guidance, sign-language support"
+                ></textarea>
+              </div>
+
+              <div class="button-row">
+                <button class="primary-button" type="submit">Save place</button>
+                <button class="ghost-button" id="capture-map-center" type="button">Use map center</button>
+              </div>
+              <p class="field-note" id="place-form-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section class="page-section" id="assistant">
+        <div class="section-heading">
+          <p class="eyebrow">Assistant</p>
+          <h2>Accessibility assistant for questions and guidance</h2>
+          <p>
+            Ask about routes, the safest place, nearby barriers, your profile, or what location is best for your needs.
+          </p>
+        </div>
+
+        <div class="support-layout">
+          <div class="card">
+            <h3>Chat assistant</h3>
+            <div class="assistant-thread" id="assistant-thread"></div>
+            <form class="report-form" id="assistant-form">
+              <label for="assistant-input">Question</label>
+              <input
+                id="assistant-input"
+                name="assistant-input"
+                type="text"
+                placeholder="Example: How do I get to the clinic and is there a ramp?"
+              />
+              <button class="primary-button" type="submit">Ask assistant</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <h3>User profile snapshot</h3>
+            <div class="user-profile-panel" id="user-profile-panel"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Built as a hackathon-ready web MVP for Alatau Smart City.</p>
+      <a href="README.md">Project notes</a>
+    </footer>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="script.js"></script>
+  </body>
+</html>
